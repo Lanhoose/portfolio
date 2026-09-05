@@ -5,6 +5,7 @@ import Projects from './components/Projects';
 import Certificados from './components/Certificados';
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
+import DeveloperPanel from './components/DeveloperPanel';
 import Clock from './components/Clock';
 
 import './components/vlibras.js';
@@ -1766,6 +1767,15 @@ export default function App() {
           <Certificados />
           <Contact />
           <Footer />
+          <DeveloperPanel
+            xp={xp}
+            xpLevel={xpLevel}
+            conquistas={conquistasDesbloqueadas}
+            totalConquistas={LISTA_CONQUISTAS.length}
+            tempoSegundos={tempoSegundos}
+            musicaAtiva={musicaAtiva}
+            idioma={idioma}
+          />
 
           {/* Botão de engrenagem livre fora da div do painel de cores */}
           <button
