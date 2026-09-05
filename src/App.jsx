@@ -5,8 +5,9 @@ import Projects from './components/Projects';
 import Certificados from './components/Certificados';
 import Contact from './components/Contact'; 
 import Footer from './components/Footer';
-import DeveloperPanel from './components/DeveloperPanel';
 import Clock from './components/Clock';
+import DeveloperConsole from './components/DeveloperConsole';
+import ActivityMonitor from './components/ActivityMonitor';
 
 import './components/vlibras.js';
 import './App.css';
@@ -866,6 +867,10 @@ export default function App() {
     try { return parseInt(localStorage.getItem('portfolio_xp') || '0'); } catch { return 0; }
   });
   const [tempoSegundos, setTempoSegundos] = useState(0);
+  const [consoleAberto, setConsoleAberto] = useState(false);
+  const [atividade, setAtividade] = useState(() => ({
+    secoes: {}, cliques: 0, projetos: 0, certificados: 0, comandos: 0, inicio: Date.now()
+  }));
 
   // ── painel & preferências de fundo ──
   const [corFundo, setCorFundo] = useState(() => {
@@ -1076,6 +1081,33 @@ export default function App() {
   const t = traducoes[idioma] || traducoes.pt;
   const mestreDoSistema = conquistasDesbloqueadas.length === LISTA_CONQUISTAS.length;
   const xpLevel = Math.floor(xp / 100) + 1;
+
+  useEffect(() => {
+    const onClick = (e) => {
+      setAtividade(a => ({ ...a, cliques: a.cliques + 1 }));
+      const project = e.target.closest?.('.project-card');
+      const cert = e.target.closest?.('.certificate-mini-card');
+      if (project) setAtividade(a => ({ ...a, projetos: a.projetos + 1 }));
+      if (cert) setAtividade(a => ({ ...a, certificados: a.certificados + 1 }));
+    };
+    document.addEventListener('click', onClick);
+    const sections = ['about','projects','certificates','contact'];
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id;
+          setAtividade(a => ({ ...a, secoes: { ...a.secoes, [id]: (a.secoes[id] || 0) + 1 } }));
+        }
+      });
+    }, { threshold: 0.35 });
+    sections.forEach(id => { const el = document.getElementById(id); if (el) observer.observe(el); });
+    return () => { document.removeEventListener('click', onClick); observer.disconnect(); };
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setAtividade(a => ({ ...a })), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ── helpers ──────────────────────────────────────────────────
   const ganharXP = useCallback((acao) => {
@@ -1446,10 +1478,11 @@ export default function App() {
   }, [glitchAtivo]);
 
   // ── Terminal ──
-  const executarComando = (e) => {
-    if (e.key !== 'Enter') return;
-    const cmd = comandoInput.trim().toLowerCase();
+  const executarComandoTexto = (valor) => {
+    const cmd = valor.trim().toLowerCase();
+    if (!cmd) return;
     setComandoInput('');
+    setAtividade(a => ({ ...a, comandos: a.comandos + 1 }));
     ganharXP('comando_terminal');
 
     if (cmd === '/secret') {
@@ -1560,6 +1593,10 @@ export default function App() {
     } else {
       setRetornoTerminal(t.comandoInvalido);
     }
+  };
+
+  const executarComando = (e) => {
+    if (e.key === 'Enter') executarComandoTexto(e.currentTarget.value);
   };
 
   const interagirComSeguranca = () => {
@@ -1686,6 +1723,18 @@ export default function App() {
     ? (hexValido(cursorCorInput) ? cursorCorInput : '#4b80e2')
     : (hexValido(trailCorInput) ? trailCorInput : '#4b80e2');
 
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setConsoleAberto(v => !v);
+      }
+      if (e.key === 'Escape') setConsoleAberto(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <>
       {carregando ? (
@@ -1728,6 +1777,7 @@ export default function App() {
           )}
 
           <BarraProgresso />
+          <DeveloperConsole aberto={consoleAberto} onFechar={() => setConsoleAberto(false)} onComando={executarComandoTexto} retorno={retornoTerminal} />
           <ToastBoasVindas />
           <BotaoTopo />
           {particulasAtivas && <ParticulasFundo />}
@@ -1767,15 +1817,6 @@ export default function App() {
           <Certificados />
           <Contact />
           <Footer />
-          <DeveloperPanel
-            xp={xp}
-            xpLevel={xpLevel}
-            conquistas={conquistasDesbloqueadas}
-            totalConquistas={LISTA_CONQUISTAS.length}
-            tempoSegundos={tempoSegundos}
-            musicaAtiva={musicaAtiva}
-            idioma={idioma}
-          />
 
           {/* Botão de engrenagem livre fora da div do painel de cores */}
           <button
@@ -1878,6 +1919,16 @@ export default function App() {
                   <span style={{ fontFamily:"'Fira Code',monospace", color:'var(--primary)' }}>{formatarTempo(tempoSegundos)}</span>
                 </div>
               </div>
+
+              <ActivityMonitor atividade={atividade} tempoSegundos={tempoSegundos} />
+
+              <button
+                className="dev-console-launcher"
+                onClick={() => setConsoleAberto(true)}
+              >
+                <span>▣</span> Abrir Developer Console
+                <kbd>Ctrl + Shift + D</kbd>
+              </button>
 
               <div className="mini-terminal-container">
                 <input type="text" className="terminal-input" value={comandoInput} onChange={(e) => setComandoInput(e.target.value)} onKeyDown={executarComando} placeholder={t.terminalPlaceholder} />
